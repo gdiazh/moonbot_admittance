@@ -28,45 +28,53 @@ the end-effector physical interactions.
 The controller treats the commanded joint offset as a virtual
 mass-spring-damper system:
 
-$$\[ M_q `\ddot `{=tex}q\_{`\mathrm{off}`{=tex}} + D_q
-`\dot `{=tex}q\_{`\mathrm{off}`{=tex}} + K_q q\_{`\mathrm{off}`{=tex}} =
-`\tau`{=tex}\_{`\mathrm{ext}`{=tex}}. \]$$
+$$
+M_q \ddot{q}_{\mathrm{off}} + D_q
+\dot{q}_{\mathrm{off}} + K_q q_{\mathrm{off}} =
+\tau_{\mathrm{ext}}
+$$
 
-Here, ($q\_{`\mathrm{off}`{=tex}}$) is the compliant joint offset, ($M_q$),
-($D_q$), and ($K_q$) are virtual inertia, damping, and stiffness matrices,
-and ($`\tau`{=tex}\_{`\mathrm{ext}`{=tex}}$) is the external wrench mapped
+Here, $q_{\mathrm{off}}$ is the compliant joint offset, $M_q$,
+$D_q$, and $K_q$ are virtual inertia, damping, and stiffness matrices,
+and $\tau _{\mathrm{ext}}$ is the external wrench mapped
 into joint space.
 
 The wrench is mapped using the manipulator Jacobian:
 
-$$\[ `\tau`{=tex}*{`\mathrm{ext}`{=tex}} = J(q)\^`\mathsf{T}`{=tex}
-F*{`\mathrm{ext}`{=tex}}. \]$$
+$$\tau *{\mathrm{ext}} = J(q)\^\mathsf{T} F*{\mathrm{ext}}$$
 
 The exact sign depends on the sensor convention. 
 This has to be carefully verified before operation.
 
 The continuous dynamics are evaluated in acceleration form:
 
-$$\[ `\ddot `{=tex}q\_{`\mathrm{off}`{=tex}} =
-M_q\^{-1}`\left`{=tex}(`\tau`{=tex}*{`\mathrm{ext}`{=tex}} -
-D_q`\dot `{=tex}q*{`\mathrm{off}`{=tex}} - K_q
-q\_{`\mathrm{off}`{=tex}}`\right`{=tex}). \]$$
+$$
+\ddot{q}_{\mathrm{off}} =
+M_{q}^{-1}\left(\tau *{\mathrm{ext}}
+-D_q\dot{q}*{\mathrm{off}}
+-K_q q_{\mathrm{off}}\right) 
+$$
 
 The update is done via a simple forward-Euler rule:
 
-$$\[ `\dot `{=tex}q\_{`\mathrm{off}`{=tex},k+1} =
-`\dot `{=tex}q\_{`\mathrm{off}`{=tex},k} +
-`\ddot `{=tex}q\_{`\mathrm{off}`{=tex},k}`\Delta `{=tex}t, \]$$
+$$
+\dot{q}_{\mathrm{off}, k+1} =
+\dot{q}_{\mathrm{off} ,k}
++\ddot{q}_{\mathrm{off} ,k} \Delta t 
+$$
 
-$$\[ q\_{`\mathrm{off}`{=tex},k+1} = q\_{`\mathrm{off}`{=tex},k} +
-`\dot `{=tex}q\_{`\mathrm{off}`{=tex},k+1}`\Delta `{=tex}t. \]$$
+$$
+q_{\mathrm{off}, k+1} = q_{\mathrm{off}, k}
++\dot{q}_{\mathrm{off}, k+1}\Delta t 
+$$
 
-The final target is contructed by adding the offset to the reference:
+The final target is constructed by adding the offset to the reference:
 
-$$\[ q\_{`\mathrm{target}`{=tex}} = q\_{`\mathrm{ref}`{=tex}} +
-q\_{`\mathrm{off}`{=tex}}. \]$$
+$$
+q_{\mathrm{target}} = q_{\mathrm{ref}}+q_{\mathrm{off}} 
+$$
 
-The reference ($q\_{`\mathrm{ref}`{=tex}}$) may come from leader-arm joint
+The reference $q_{\mathrm{ref}}$ may come from leader-arm joint
 mapping or another source, such as a learned policy. The follower's
 existing joint controller is responsible for tracking the resulting
 target.
@@ -82,45 +90,44 @@ The processing sequence is:
 5.  Apply a deadband and safety checks.
 6.  Optionally shape the force along a task-specific direction.
 7.  Transform the wrench into the frame expected by the Jacobian.
-8.  Compute ($`\tau`{=tex}*{`\mathrm{ext}`{=tex}} =
-    J\^`\mathsf{T}`{=tex}F*{`\mathrm{ext}`{=tex}}$).
+8.  Compute $\tau_{\mathrm{ext}} = J^{\mathsf{T}} F_{\mathrm{ext}}$.
 9.  Integrate the admittance dynamics and update the joint target.
 
 ### Low-pass filter
 
 A first-order discrete low-pass filter can be written as
 
-$$\[ F_k = `\alpha `{=tex}F\^{`\mathrm{raw}`{=tex}}*k +
-(1-`\alpha`{=tex})F*{k-1}, \]$$
+$$F_k = \alpha F^{\mathrm{raw}}*k + (1-\alpha )F*{k-1}$$
 
-where ($F\^{`\mathrm{raw}`{=tex}}\_k$) is the current compensated wrench,
-($F_k$) is the filtered wrench, and ($0 \< `\alpha `{=tex}\< 1$). Larger
-($`\alpha`{=tex}$) responds faster but smooths less. Smaller
-($`\alpha`{=tex}$) provides more smoothing but adds delay.
+where $F\^{\mathrm{raw}}_k$ is the current compensated wrench,
+$F_k$ is the filtered wrench, and $0 < \alpha < 1$. Larger
+$\alpha$ responds faster but smooths less. Smaller
+$\alpha$ provides more smoothing but adds delay.
 
 ### Tool gravity compensation
 
-Let ($m$) be the estimated tool mass, ($r\_{`\mathrm{com}`{=tex}}$) the COM
+Let $m$ be the estimated tool mass, $r_{\mathrm{com}}$ the COM
 position relative to the sensor origin, and
-($g_b=\[0,0,-9.81\]\^`\mathsf{T}`{=tex},`\mathrm{m/s^2}`{=tex}$) the
-gravity vector in the robot base frame. If ($R\_{bs}$) rotates vectors
+$g_b=[0,0,-9.81]^{\mathsf{T}}, \mathrm{m\/s^2}$ the
+gravity vector in the robot base frame. If $R_{bs}$ rotates vectors
 from the sensor frame to the base frame, gravity expressed in the sensor frame is
 
-$$\[ g_s = R\_{bs}\^`\mathsf{T}`{=tex}g_b. \]$$
+$$g_s = R_{bs}\^\mathsf{T} g_b$$
 
 The modeled gravity wrench is
 
-$$\[ F\_{`\mathrm{grav}`{=tex}} =
-```{=tex}
-\begin{bmatrix}
+$$
+F_{\mathrm{grav}} =
+\left[
+\begin{matrix}
 m g_s\\
 r_{\mathrm{com}}\times(m g_s)
-\end{bmatrix}
-```
-. \]$$
+\end{matrix}
+\right] 
+$$
 
 The compensated wrench is then
-($F\_{`\mathrm{ext}`{=tex}}=F\_{`\mathrm{meas}`{=tex}}-F\_{`\mathrm{bias}`{=tex}}-F\_{`\mathrm{grav}`{=tex}}$),
+$F_{\mathrm{ext}}=F_{\mathrm{meas}}-F_{\mathrm{bias}}-F_{\mathrm{grav}}$,
 subject to the sensor's sign convention.
 
 ## Tool mass and COM calibration
@@ -131,21 +138,18 @@ wrench averages at different end-effector orientations. At each pose,
 we use forward kinematics to obtain the sensor orientation and calculate
 gravity in the sensor frame.
 
-For pose ($i$), let ($f_i$) be the measured force after appropriate bias
-handling and ($g_i$) the gravity vector expressed in the sensor frame.
+For pose $i$, let $f_i$ be the measured force after appropriate bias
+handling and $g_i$ the gravity vector expressed in the sensor frame.
 Under the static-gravity model,
 
-$$\[ f_i `\approx `{=tex}m g_i, `\qquad`{=tex} `\hat `{=tex}m_i =
-`\frac{g_i^\mathsf{T} f_i}{g_i^\mathsf{T}g_i}`{=tex}. \]$$
+$$f_i \approx m g_i, \qquad  \hat m_i = \frac{g_i^\mathsf{T} f_i}{g_i^\mathsf{T}g_i}$$
 
 Then, we combine measurements across poses to estimate mass robustly, and
 estimate the COM from the measured torque:
 
-$$\[ `\tau`{=tex}*i
-`\approx `{=tex}r*{`\mathrm{com}`{=tex}}`\times`{=tex}(m g_i) =
--m\[g_i\]*`\times `{=tex}r*{`\mathrm{com}`{=tex}}, \]$$
+$$\tau *i \approx r*{\mathrm{com}}\times (m g_i) = -m[g_i]*\times r*{\mathrm{com}}$$
 
-where ($\[g_i\]\_`\times`{=tex}$) is the skew-symmetric matrix for the
+where $[g_i]_{\times}$ is the skew-symmetric matrix for the
 cross product. The resulting system is solved by least squares.
 
 Calibration tips:
@@ -159,13 +163,13 @@ Calibration tips:
 
 The virtual parameters determine how the offset responds to external interaction:
 
--   **Inertia ($M_q$):** higher values generally reduce acceleration for a given input.
--   **Damping ($D_q$):** higher values suppress velocity and usually reduce overshoot.
--   **Stiffness ($K_q$):** higher values pull the offset back toward zero more strongly.
+-   **Inertia $M_q$:** higher values generally reduce acceleration for a given input.
+-   **Damping $D_q$:** higher values suppress velocity and usually reduce overshoot.
+-   **Stiffness $K_q$:** higher values pull the offset back toward zero more strongly.
 
 For seven joints, a simple initial parameterization is
 
-$$\[ M_q=m_q I_7,`\qquad `{=tex}D_q=d_q I_7,`\qquad `{=tex}K_q=k_q I_7. \]$$
+$$M_q=m_q I_7,\qquad D_q=d_q I_7,\qquad K_q=k_q I_7$$
 
 A general rule is to start with low gains and conservative limits. Increase damping if the
 response oscillates. Adjust inertia to change the speed of the initial response.
